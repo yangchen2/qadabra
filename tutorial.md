@@ -144,8 +144,12 @@ The generated Snakemake report contains the following folder structure:
     - `EMPress plot`: An EMPress.html file to interactively explore differential abundance results with respect to phylogenetic relationships (if a tree was provided).
 
 
+* `Summary`
+        -  `summary_figure_top.svg`: Summary plot of average coefficients from each method and number of methods producing a significant p-value, for top features.
+        <img src="images/summary_figure_top.jpg" alt="Schematic" width="600">
+
 ## Interpretations
-In this example dataset, all differential abundance methods agree by both p-values and differentials that _Staphylococcus capitis_ is differentially abundant in the 90 Days Post-Treatment samples compared to the Baseline (not treated with _S. capitis_) as expected based on the design of the clinical trial. Whether the application of the _S. capitis_ strain successfully reduced _Cutibacterium acnes_ populations remains to be debated based on the differential abundance results. However, those tools that do report some species that are statistically decreased at Post-Treatment are mostly _Cutibacterium_ species.
+In this example dataset, all differential abundance methods agree by both p-values and differentials that _Staphylococcus capitis_ is differentially abundant in the 90 Days Post-Treatment samples compared to the Baseline (not treated with _S. capitis_) as expected based on the design of the clinical trial. Whether the application of the _S. capitis_ strain successfully reduced _Cutibacterium acnes_ populations remains to be debated based on the differential abundance results. However, those tools that do report some species that are statistically decreased at Post-Treatment are mostly _Cutibacterium_ species. The summary plot also agrees with these interpretations and provides a quick way to view the results from QADABRA.
 
 
 
