@@ -293,3 +293,20 @@ rule create_pval_table:
         "../envs/qadabra-default.yaml"
     script:
         "../scripts/create_pval_table.py"
+
+rule plot_summary_figure_top:
+    input:
+        "results/{dataset}/concatenated_differentials.tsv",
+        "results/{dataset}/concatenated_pvalues.tsv"
+    output:
+        report(
+            "figures/{dataset}/summary_figure_top.svg",
+            caption="../report/summary_figure_top.rst",
+            category="Summary"
+        )
+    log:
+        "log/{dataset}/plot_summary_figure_top.log",
+    conda:
+        "../envs/qadabra-default.yaml"
+    script:
+        "../scripts/plot_summary_figure_top.py"            
