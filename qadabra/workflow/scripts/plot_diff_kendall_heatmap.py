@@ -33,8 +33,12 @@ sns.heatmap(
     annot=True,
     mask=mask,
     square=True,
-    ax=ax
+    ax=ax,
+    vmin=0.4,
+    vmax=1.0,
+    cmap='rocket_r'
 )
-ax.set_title("Kendall Rank Correlations")
+ax.set_title("Kendall Rank Correlations of Coefficients")
+
 plt.savefig(snakemake.output[0])
 logger.info(f"Saved to {snakemake.output[0]}")

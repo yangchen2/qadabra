@@ -29,7 +29,7 @@ mask[np.triu_indices_from(mask)] = True
 
 fig, ax = plt.subplots(1, 1)
 
-palette = sns.color_palette("rocket", as_cmap=True)
+palette = sns.color_palette("mako_r", as_cmap=True)
 
 sns.heatmap(
     corr,
@@ -41,6 +41,9 @@ sns.heatmap(
     vmin=0,
     vmax=1
 )
+
 ax.set_title("Kendall Rank Correlations of P-values")
+
+
 plt.savefig(snakemake.output[0])
 logger.info(f"Saved to {snakemake.output[0]}")
