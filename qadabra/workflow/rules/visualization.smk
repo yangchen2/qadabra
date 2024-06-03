@@ -297,7 +297,8 @@ rule create_pval_table:
 rule plot_summary_figure_top:
     input:
         "results/{dataset}/concatenated_differentials.tsv",
-        "results/{dataset}/concatenated_pvalues.tsv"
+        "results/{dataset}/concatenated_pvalues.tsv",
+        datasets.iloc[0]['table'] # biom path
     output:
         report(
             "figures/{dataset}/summary_figure_top.svg",

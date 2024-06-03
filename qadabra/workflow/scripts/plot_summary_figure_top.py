@@ -6,9 +6,11 @@ from biom.util import biom_open
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.gridspec as gridspec
+from matplotlib.cm import ScalarMappable
+
 
 logger = logging.getLogger("qadabra")
 logger.setLevel(logging.INFO)
@@ -31,6 +33,8 @@ concat_coef = pd.read_csv(snakemake.input[0], sep="\t")
 logger.info(f"Reading in concatenated pvalues table")
 # Read in p-values table
 concat_pvalue = pd.read_csv(snakemake.input[1], sep="\t")
+
+
 
 logger.info(f"Summarizing results")
 # Create column that counts number of tools with significant p-value
@@ -59,16 +63,56 @@ combined = pd.concat([top_features, bottom_features])
 combined_sorted = combined.sort_values(by='avg_coef', ascending=False)  # Sort to have positives on top
 
 
-# Adjusting colors based on avg_coef
-def adjust_colors(value, max_positive, max_negative):
-    if value > 0:
-        return (1, 0, 0, max(min(value / max_positive, 1), 0.1))
-    else:
-        return (0, 0, 1, max(min((-value) / max_negative, 1), 0.1))
 
+logger.info(f"Reading in BIOM table to get abundance info")
+# Read in BIOM table
+biom_table = load_table(snakemake.input[2])
+df = pd.DataFrame(biom_table.to_dataframe())
+
+# Get row sum
+df['row_sum'] = df.sum(axis=1)
+# Logarithmic normalization
+df['Log_Abundance'] = np.log10(df['row_sum'] + 1)  # Adding 1 to avoid log(0)
+
+# Min-Max normalization on the log-transformed data
+df['Normalized_Log_Abundance'] = (df['Log_Abundance'] - df['Log_Abundance'].min()) / (df['Log_Abundance'].max() - df['Log_Abundance'].min())
+
+# Convert to dense array before applying the minimum threshold
+df['Normalized_Log_Abundance'] = df['Normalized_Log_Abundance'].astype(np.float64)
+df['Normalized_Log_Abundance'] = df['Normalized_Log_Abundance'].apply(lambda x: max(x, 0.05))
+
+
+# Reset index
+df = df.reset_index().rename(columns={'index': 'feature_id'})
+
+# Merging both dataframes
+combined_sorted = combined_sorted.merge(df[['feature_id', 'Normalized_Log_Abundance']], on='feature_id', how='left')
+
+
+
+logger.info(f"Plotting figure")
+# def adjust_colors(value, max_positive, max_negative, alpha):
+#     if value > 0:
+#         return (1, 0, 0, alpha)  # Red with alpha
+#     else:
+#         return (0, 0, 1, alpha)  # Blue with alpha
+
+def adjust_colors(value, max_positive, max_negative, alpha):
+    if value > 0:
+        return (1, 0.5, 0.31, alpha)  # Coral with alpha
+    else:
+        return (0, 0.5, 0.5, alpha)  # Teal with alpha
+
+# Assuming combined_sorted is your DataFrame
 max_positive = combined_sorted['avg_coef'][combined_sorted['avg_coef'] > 0].max()
 max_negative = -combined_sorted['avg_coef'][combined_sorted['avg_coef'] < 0].min()
-colors_adjusted = combined_sorted['avg_coef'].apply(lambda x: adjust_colors(x, max_positive, max_negative))
+alpha_values = combined_sorted['Normalized_Log_Abundance']
+
+# Adjust colors with alpha based on Normalized_Log_Abundance
+colors_adjusted = combined_sorted.apply(
+    lambda row: adjust_colors(row['avg_coef'], max_positive, max_negative, row['Normalized_Log_Abundance']),
+    axis=1
+)
 
 # Create a colormap with 8 discrete colors from white to black
 colors_8_reversed = np.linspace(1, 0, 8)  # Generate 8 grayscale values from white to black
@@ -85,31 +129,25 @@ ax2 = fig.add_subplot(gs[1])
 ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 
-print(f"combined_sorted['avg_coef'] shape: {combined_sorted['avg_coef'].shape}")
-print(f"combined_sorted['SEM'] shape: {combined_sorted['SEM'].shape}")
 # Ensure 'xerr' is a 1D array
 xerr = combined_sorted['SEM'].values if combined_sorted['SEM'].shape == combined_sorted['avg_coef'].shape else None
 
 if xerr is None:
     raise ValueError("The shape of 'xerr' does not match the shape of 'avg_coef'. Please check the data.")
 
-
 # Left Subplot: Horizontal barplot
 y_positions = np.arange(len(combined_sorted))
-ax1.barh(y_positions, combined_sorted['avg_coef'], color=colors_adjusted.loc[combined_sorted.index], xerr=combined_sorted['SEM'].loc[combined_sorted.index])
-
-# xerr = combined_sorted['SEM'].values  # Ensure xerr is a 1D array and matches the shape of avg_coef
-# xerr=combined_sorted['SEM'].loc[combined_sorted.index]
-# print(xerr)
-# ax1.barh(y_positions, combined_sorted['avg_coef'], color=colors_adjusted.values, xerr=xerr)
+ax1.barh(y_positions, combined_sorted['avg_coef'], color=colors_adjusted.tolist(), xerr=combined_sorted['SEM'].loc[combined_sorted.index])
 
 ax1.set_yticks(y_positions)
 ax1.set_yticklabels(combined_sorted['feature_id'], fontsize=8)
 ax1.set_xlabel('Average Coefficient')
-ax1.set_title('Summary plot', fontsize=13)
+# ax1.set_title('Summary Plot', fontsize=13)
+
+# ax1.set_title('Summary Plot')
+
 ax1.invert_yaxis()  # Positive values on top
 
-print(combined_sorted)
 # Right Subplot: Heatmap with 8 reversed discrete colors, making cells square
 img = ax2.imshow(combined_sorted['num_sig'].values.reshape(-1, 1), cmap=cmap_8_colors_reversed, aspect='auto', vmin=0, vmax=7)
 ax2.set_xticks([])
@@ -122,9 +160,27 @@ ax1.set_ylim(ax2.get_ylim())
 # Add colorbar
 cbar = fig.colorbar(img, ax=ax2, orientation='vertical', ticks=np.arange(8), label='Number of Tools Adjusted P-value < 0.01')
 
-# Add border around the whole plot
-# fig.patch.set_linewidth(1)  # Set border width
-# fig.patch.set_edgecolor('black')  # Set border color
+
+# Create colormaps from white to blue and white to red
+cmap_white_to_blue = LinearSegmentedColormap.from_list('white_to_blue', [(1, 1, 1), (0, 0, 1)], N=100)
+cmap_white_to_red = LinearSegmentedColormap.from_list('white_to_red', [(1, 1, 1), (1, 0, 0)], N=100)
+
+# Define the colormaps
+# cmap_white_to_coral = LinearSegmentedColormap.from_list('white_to_coral', [(1, 1, 1), (1, 0.5, 0.31)], N=100)
+# cmap_white_to_teal = LinearSegmentedColormap.from_list('white_to_teal', [(1, 1, 1), (0, 0.5, 0.5)], N=100)
+
+# Create separate colormaps for positive and negative values
+norm_positive = Normalize(vmin=0.0, vmax=1)
+norm_negative = Normalize(vmin=0.0, vmax=1)
+
+sm_positive = ScalarMappable(cmap=cmap_white_to_blue, norm=norm_positive)
+sm_negative = ScalarMappable(cmap=cmap_white_to_red, norm=norm_negative)
+
+# Add colorbars underneath both ax1 and ax2
+cbar_positive = fig.colorbar(sm_positive, ax=[ax1, ax2], orientation='horizontal', fraction=0.0075, pad=0.05, anchor=(0.825, -2.0))
+cbar_negative = fig.colorbar(sm_negative, ax=[ax1, ax2], orientation='horizontal', fraction=0.0075, pad=0.05, anchor=(0.825, -2.0))
+cbar_positive.set_label('Normalized Log Abundances', fontsize=10)
+
 
 plt.tight_layout()
 plt.savefig(snakemake.output[0], dpi=600)
