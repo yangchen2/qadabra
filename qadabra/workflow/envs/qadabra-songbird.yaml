@@ -6,8 +6,10 @@ dependencies:
     - cython
     - songbird
     - pandas>=0.18.0,<1
-    - qurro
+    # - qurro
     - pip
     - pip:
         - empress
-        - tensorflow<2
+        - tensorflow-macos
+        # - tensorflow
+        # - tensorflow-metal

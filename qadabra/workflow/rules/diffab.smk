@@ -3,6 +3,97 @@ import os
 da_args = ["table", "metadata"]
 da_params = ["factor_name", "target_level", "reference_level", "confounders"]
 
+rule biom_to_qza:
+    input:
+        unpack(lambda wc: get_dataset_cfg(wc, da_args))
+    output:
+        qza="results/{dataset}/input_data/qza/{dataset}.qza"
+    log:
+        "log/{dataset}/biom_to_qza.log"
+    conda:
+        "../envs/q2-birdman-dev.yaml"
+    shell:
+        """
+        source activate /Users/yangchen/miniforge3/envs/q2-birdman-dev
+        qiime tools import \
+          --input-path {input.table} \
+          --type 'FeatureTable[Frequency]' \
+          --output-path {output.qza}
+        """
+
+
+rule birdman:
+    input:
+        table="results/{dataset}/input_data/qza/{dataset}.qza",
+        metadata=lambda wc: get_dataset_cfg(wc, da_args)["metadata"]
+    output:
+        directory("results/{dataset}/tools/birdman/raw_results/"),
+        beta_var="results/{dataset}/tools/birdman/raw_results/results/beta_var.tsv"
+    log:
+        "log/{dataset}/birdman.log"
+    params:
+        lambda wc: get_dataset_cfg(wc, da_params),
+        formula=get_birdman_formula,
+    conda:
+        "../envs/q2-birdman-dev.yaml"
+    shell:
+        """
+        source activate /Users/yangchen/miniforge3/envs/q2-birdman-dev
+
+        # Log the current date and time
+        echo "Start time: $(date)" >> {log} 2>&1
+
+        # Log the QIIME 2 version
+        echo "Running QIIME 2 in environment:" >> {log} 2>&1
+        qiime --version >> {log} 2>&1
+        
+        # Log all details from `qiime info`
+        echo "Complete QIIME 2 environment details:" >> {log} 2>&1
+        qiime info >> {log} 2>&1
+
+        # Check if Birdman is listed in the plugins
+        echo "Checking for Birdman plugin:" >> {log} 2>&1
+        if ! qiime info | grep birdman; then
+            echo "Error: Birdman plugin is not installed or unavailable in this environment!" >> {log} 2>&1
+            echo "End time: $(date)" >> {log} 2>&1
+            exit 1
+        fi
+
+        # Run the Birdman analysis
+        echo "Running Birdman analysis:" >> {log} 2>&1
+        qiime birdman run \
+            --i-table {input.table} \
+            --m-metadata-file {input.metadata} \
+            --p-formula "{params.formula}" \
+            --o-output-dir {output[0]} >> {log} 2>&1
+
+
+        # Confirm success
+        if [ $? -eq 0 ]; then
+            echo "Birdman analysis completed successfully!" >> {log} 2>&1
+        else:
+            echo "Error: Birdman analysis failed!" >> {log} 2>&1
+            echo "End time: $(date)" >> {log} 2>&1
+            exit 1
+        fi
+
+        # Log the end date and time
+        echo "End time: $(date)" >> {log} 2>&1
+        """
+
+
+rule extract_birdman_results:
+    input:
+        directory("results/{dataset}/tools/birdman/raw_results/results/beta_var.tsv")
+    output:
+        beta_var="results/{dataset}/tools/birdman/differentials.tsv",
+    log:
+        "log/{dataset}/extract_birdman_results.log"
+    shell:
+        """
+        cp {input}/results/beta_var.tsv {output.beta_var}
+        """
+
 
 rule deseq2:
     input:
