@@ -286,10 +286,11 @@ dependencies:
       - matplotlib==3.9.2
       - patsy==1.0.1
       - pillow==11.0.0
-      - q2-birdman==0+untagged.11.g7e07be5
+      # - q2-birdman==0+untagged.11.g7e07be5
       - scipy==1.12.0
       - stanio==0.5.1
       - tqdm==4.67.0
       - xarray==2024.7.0
       - xarray-einstats==0.7.0
+      - git+https://github.com/lucaspatel/BIRDMAn-CLI.git
 prefix: /Users/yangchen/miniforge3/envs/q2-birdman-dev

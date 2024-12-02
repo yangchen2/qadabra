@@ -14,32 +14,6 @@ rule biom_to_qza:
         "../envs/q2-birdman-dev.yaml"
     shell:
         """
-        source activate /Users/yangchen/miniforge3/envs/q2-birdman-dev
-        qiime tools import \
-          --input-path {input.table} \
-          --type 'FeatureTable[Frequency]' \
-          --output-path {output.qza}
-        """
-
-
-rule birdman:
-    input:
-        table="results/{dataset}/input_data/qza/{dataset}.qza",
-        metadata=lambda wc: get_dataset_cfg(wc, da_args)["metadata"]
-    output:
-        directory("results/{dataset}/tools/birdman/raw_results/"),
-        beta_var="results/{dataset}/tools/birdman/raw_results/results/beta_var.tsv"
-    log:
-        "log/{dataset}/birdman.log"
-    params:
-        lambda wc: get_dataset_cfg(wc, da_params),
-        formula=get_birdman_formula,
-    conda:
-        "../envs/q2-birdman-dev.yaml"
-    shell:
-        """
-        source activate /Users/yangchen/miniforge3/envs/q2-birdman-dev
-
         # Log the current date and time
         echo "Start time: $(date)" >> {log} 2>&1
 
@@ -52,47 +26,127 @@ rule birdman:
         qiime info >> {log} 2>&1
 
         # Check if Birdman is listed in the plugins
-        echo "Checking for Birdman plugin:" >> {log} 2>&1
-        if ! qiime info | grep birdman; then
-            echo "Error: Birdman plugin is not installed or unavailable in this environment!" >> {log} 2>&1
-            echo "End time: $(date)" >> {log} 2>&1
-            exit 1
-        fi
+        echo "Running qiime tools import..." >> {log} 2>&1
+
+        qiime tools import \
+          --input-path {input.table} \
+          --type 'FeatureTable[Frequency]' \
+          --output-path {output.qza}
+
+        # Log the end date and time
+        echo "Complete! QZA file outputed." >> {log} 2>&1  
+        """
+
+
+rule birdman:
+    input:
+        table="results/{dataset}/input_data/qza/{dataset}.qza",
+        metadata=lambda wc: get_dataset_cfg(wc, da_args)["metadata"]
+    output:
+        raw_results = directory("results/{dataset}/tools/birdman/raw_results.qza"),
+    log:
+        "log/{dataset}/birdman.log"
+    params:
+        lambda wc: get_dataset_cfg(wc, da_params),
+        formula=get_birdman_formula,
+        outdir=lambda wc, output: os.path.dirname(output[0])
+    shell:
+        """
+        /bin/bash -l -c "
+        echo 'Initializing Conda...' >> {log} 2>&1 &&
+        source ~/miniforge3/etc/profile.d/conda.sh &&
+
+        conda activate q2-birdman-dev
+        echo 'Activated Conda Environment: q2-birdman-dev' >> {log} 2>&1 &&
+
+        # Log the current date and time
+        echo 'Start time: $(date)' >> {log} 2>&1 &&
+
+        # Log the QIIME 2 version
+        echo 'Running QIIME 2 in environment:' >> {log} 2>&1 &&
+        qiime --version >> {log} 2>&1 &&
+
+        # Log all details from `qiime info`
+        echo 'Complete QIIME 2 environment details:' >> {log} 2>&1 &&
+        qiime info >> {log} 2>&1 &&
+        
+        echo 'Removing existing directory if it exists...' >> {log} 2>&1 &&
+        rm -rf {output.raw_results} &&
 
         # Run the Birdman analysis
-        echo "Running Birdman analysis:" >> {log} 2>&1
+        echo 'Running Birdman analysis...' >> {log} 2>&1 &&
         qiime birdman run \
             --i-table {input.table} \
             --m-metadata-file {input.metadata} \
-            --p-formula "{params.formula}" \
-            --o-output-dir {output[0]} >> {log} 2>&1
-
+            --p-formula '{params.formula}' \
+            --o-output-dir {output.raw_results} \
+            --verbose >> {log} 2>&1 &&
 
         # Confirm success
-        if [ $? -eq 0 ]; then
-            echo "Birdman analysis completed successfully!" >> {log} 2>&1
-        else:
-            echo "Error: Birdman analysis failed!" >> {log} 2>&1
-            echo "End time: $(date)" >> {log} 2>&1
-            exit 1
-        fi
-
-        # Log the end date and time
-        echo "End time: $(date)" >> {log} 2>&1
+        echo 'Birdman analysis completed successfully!' >> {log} 2>&1;
         """
 
 
-rule extract_birdman_results:
+rule export_birdman_output:
     input:
-        directory("results/{dataset}/tools/birdman/raw_results/results/beta_var.tsv")
+        output_qza = "results/{dataset}/tools/birdman/raw_results.qza"
     output:
-        beta_var="results/{dataset}/tools/birdman/differentials.tsv",
+        output_file = "results/{dataset}/tools/birdman/raw_results",
     log:
-        "log/{dataset}/extract_birdman_results.log"
+        "log/{dataset}/export_birdman_output.log"
+    conda:
+        "../envs/q2-birdman-dev.yaml"
     shell:
         """
-        cp {input}/results/beta_var.tsv {output.beta_var}
+        # Log the current date and time
+        echo "Start time: $(date)" >> {log} 2>&1
+
+        # Log the QIIME 2 version
+        echo "Running QIIME 2 in environment:" >> {log} 2>&1
+        qiime --version >> {log} 2>&1
+        
+        # Log all details from `qiime info`
+        echo "Complete QIIME 2 environment details:" >> {log} 2>&1
+        qiime info >> {log} 2>&1
+
+        qiime tools export \
+          --input-path {input.output_qza} \
+          --output-path {output.output_file}
+
+        # Log the end date and time
+        echo "QZA file uzipped!" >> {log} 2>&1  
         """
+
+
+rule extract_birdman_output:
+    input:
+        input_file="results/{dataset}/tools/birdman/raw_results/metadata.tsv"
+    output:
+        output_file="results/{dataset}/tools/birdman/raw_results/differentials_raw.tsv"
+    log:
+        "log/{dataset}/extract_birdman_output.log"
+    shell:
+        """
+        echo "Start time: $(date)" >> {log} 2>&1
+        mv {input.input_file} {output.output_file}
+        echo "Extraction complete." >> {log} 2>&1
+        """
+
+
+rule remove_birdman_string_row:
+    input:
+        "results/{dataset}/tools/birdman/raw_results/differentials_raw.tsv"
+    output:
+        "results/{dataset}/tools/birdman/differentials.tsv"
+    log:
+        "log/{dataset}/remove_birdman_string_row.log"
+    shell:
+        """
+        echo "Start time: $(date)" >> {log} 2>&1
+        sed '2d' {input} > {output}
+        echo "Row removal complete." >> {log} 2>&1
+        """
+
 
 
 rule deseq2:

@@ -51,7 +51,7 @@ def get_diffab_tool_columns(wildcards):
         "maaslin2": "coef",
         "metagenomeseq": f"{covariate}{target}",
         "corncob": "coefs",
-        "birdman": f"{covariate}[T{target}]_mean"
+        "birdman": f"{covariate}[T.{reference}]_mean"
     }
     return columns[wildcards.tool]
 
@@ -62,15 +62,6 @@ def get_pvalue_tool_columns(wildcards):
     target = d["target_level"]
     reference = d["reference_level"]
 
-    # columns = {
-    #     "edger": "PValue",
-    #     "deseq2": "pvalue",
-    #     "ancombc": "pvals",
-    #     "aldex2": f"model.{covariate}{target} Pr(>|t|)",
-    #     "maaslin2": "pval",
-    #     "metagenomeseq": "pvalues",
-    #     "corncob": "fit.p",
-    # }
 
     columns = {
         "edger": "PValue_BH_adj",
@@ -86,7 +77,8 @@ def get_pvalue_tool_columns(wildcards):
 all_differentials = expand(
     "results/{dataset}/{out}",
     dataset=names,
-    out=["concatenated_differentials.tsv", "differentials_table.html"] # "qurro",
+    # out=["concatenated_differentials.tsv", "qurro", "differentials_table.html"]
+    out=["concatenated_differentials.tsv", "differentials_table.html"]
 )
 
 all_biom_to_qza = expand(
@@ -95,7 +87,8 @@ all_biom_to_qza = expand(
 )
 
 all_birdman = expand(
-    "results/{dataset}/tools/birdman/",
+    # "results/{dataset}/tools/birdman/raw_results.qza",
+    "results/{dataset}/tools/birdman/raw_results",
     dataset=datasets.index
 )
 
@@ -142,14 +135,9 @@ all_viz_files.extend(expand(
     pctile=config["log_ratio_feat_pcts"],
     location=["numerator", "denominator"],
 ))
-# all_viz_files.extend(expand(
-#     "figures/{dataset}/{curve}/{curve}.pctile_{pctile}.svg",
-#     dataset=names,
-#     pctile=config["log_ratio_feat_pcts"],
-#     curve=["pr", "roc"],
-# ))
 
-all_input = all_differentials + all_pvalues + pvalue_volcanoes + all_viz_files + all_ml + all_diff_viz + all_results + all_biom_to_qza #+ all_birdman
+
+all_input = all_differentials + all_pvalues + pvalue_volcanoes + all_viz_files + all_ml + all_diff_viz + all_results + all_biom_to_qza + all_birdman
 
 for dataset in datasets.iterrows():
     if not pd.isna(dataset[1]['tree']):

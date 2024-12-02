@@ -46,22 +46,22 @@ def _validate_input(
     if tbl_idx != md_idx:
         logger.warn("Table IDs and metadata IDs are not exactly the same.")
 
-    logger.info("Looking for completely discriminatory taxa...")
-    tbl_df = tbl.to_dataframe(dense=True).T
-    joint_df = tbl_df.join(md)
-    gb = joint_df.groupby(factor_name).sum(numeric_only=True)
-    feat_presence = gb.apply(lambda x: x.all())
+    # logger.info("Looking for completely discriminatory taxa...")
+    # tbl_df = tbl.to_dataframe(dense=True).T
+    # joint_df = tbl_df.join(md)
+    # gb = joint_df.groupby(factor_name).sum(numeric_only=True)
+    # feat_presence = gb.apply(lambda x: x.all())
 
-    discriminating_feats = feat_presence[~feat_presence].index.tolist()
+    # discriminating_feats = feat_presence[~feat_presence].index.tolist()
 
-    if len(discriminating_feats) > 0:
-        logger.warn("Number of discriminating features: " + str(len(discriminating_feats)))
-        warning_msg = f"Some features in the table perfectly discriminate factor groups. Automatically filtering out {len(discriminating_feats)} features before running Qadabra..."        
-        warnings.warn(warning_msg, category=Warning)
+    # if len(discriminating_feats) > 0:
+    #     logger.warn("Number of discriminating features: " + str(len(discriminating_feats)))
+    #     warning_msg = f"Some features in the table perfectly discriminate factor groups. Automatically filtering out {len(discriminating_feats)} features before running Qadabra..."        
+    #     warnings.warn(warning_msg, category=Warning)
 
-        # Filtering out the discriminating features from the BIOM table
-        tbl = tbl.filter(lambda value, id_, metadata: id_ not in discriminating_feats, axis='observation', inplace=False)
-        logger.info(f"Table shape after filtering: {tbl.shape}")
+    #     # Filtering out the discriminating features from the BIOM table
+    #     tbl = tbl.filter(lambda value, id_, metadata: id_ not in discriminating_feats, axis='observation', inplace=False)
+    #     logger.info(f"Table shape after filtering: {tbl.shape}")
 
 
     if tree:
