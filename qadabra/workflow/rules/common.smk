@@ -33,7 +33,13 @@ def get_birdman_formula(wildcards):
     d = datasets.loc[wildcards.dataset].to_dict()
 
     covariate = d["factor_name"]
-    formula = covariate
+    target = d["target_level"]
+    reference = d["reference_level"]
+    # formula = f"C({covariate}[T.{reference}]_mean)"
+    formula = f"C({covariate}, Treatment('{reference}'))"
+    if not pd.isnull(d["confounders"]):
+        confounders = d["confounders"].split(";")
+        formula = f"{formula} + {' + '.join(confounders)}"
     return formula
 
 def get_diffab_tool_columns(wildcards):
@@ -51,7 +57,8 @@ def get_diffab_tool_columns(wildcards):
         "maaslin2": "coef",
         "metagenomeseq": f"{covariate}{target}",
         "corncob": "coefs",
-        "birdman": f"{covariate}[T.{reference}]_mean"
+        # "birdman": f"{covariate}[T.{reference}]_mean"
+        "birdman": f"C({covariate}, Treatment('{reference}'))[T.{target}]_mean"
     }
     return columns[wildcards.tool]
 
@@ -87,8 +94,7 @@ all_biom_to_qza = expand(
 )
 
 all_birdman = expand(
-    # "results/{dataset}/tools/birdman/raw_results.qza",
-    "results/{dataset}/tools/birdman/raw_results",
+    "results/{dataset}/tools/birdman/raw_results/metadata.tsv",
     dataset=datasets.index
 )
 

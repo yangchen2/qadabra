@@ -43,55 +43,57 @@ rule birdman:
         table="results/{dataset}/input_data/qza/{dataset}.qza",
         metadata=lambda wc: get_dataset_cfg(wc, da_args)["metadata"]
     output:
-        raw_results = directory("results/{dataset}/tools/birdman/raw_results.qza"),
+        raw_results = "results/{dataset}/tools/birdman/raw_results.qza",
     log:
         "log/{dataset}/birdman.log"
     params:
         lambda wc: get_dataset_cfg(wc, da_params),
         formula=get_birdman_formula,
         outdir=lambda wc, output: os.path.dirname(output[0])
-    shell:
-        """
-        /bin/bash -l -c "
-        echo 'Initializing Conda...' >> {log} 2>&1 &&
-        source ~/miniforge3/etc/profile.d/conda.sh &&
+    shell: """
+    echo 'Initializing Conda...' >> {log} 2>&1 &&
+    source ~/miniforge3/etc/profile.d/conda.sh &&
 
-        conda activate q2-birdman-dev
-        echo 'Activated Conda Environment: q2-birdman-dev' >> {log} 2>&1 &&
+    set +u
+    conda activate q2-birdman-dev
+    set -u
 
-        # Log the current date and time
-        echo 'Start time: $(date)' >> {log} 2>&1 &&
+    echo 'Activated Conda Environment: q2-birdman-dev' >> {log} 2>&1 &&
 
-        # Log the QIIME 2 version
-        echo 'Running QIIME 2 in environment:' >> {log} 2>&1 &&
-        qiime --version >> {log} 2>&1 &&
+    # Log the current date and time
+    echo 'Start time: $(date)' >> {log} 2>&1 &&
 
-        # Log all details from `qiime info`
-        echo 'Complete QIIME 2 environment details:' >> {log} 2>&1 &&
-        qiime info >> {log} 2>&1 &&
-        
-        echo 'Removing existing directory if it exists...' >> {log} 2>&1 &&
-        rm -rf {output.raw_results} &&
+    # Log the QIIME 2 version
+    echo 'Running QIIME 2 in environment:' >> {log} 2>&1 &&
+    qiime --version >> {log} 2>&1 &&
 
-        # Run the Birdman analysis
-        echo 'Running Birdman analysis...' >> {log} 2>&1 &&
-        qiime birdman run \
-            --i-table {input.table} \
-            --m-metadata-file {input.metadata} \
-            --p-formula '{params.formula}' \
-            --o-output-dir {output.raw_results} \
-            --verbose >> {log} 2>&1 &&
+    # Log all details from `qiime info`
+    echo 'Complete QIIME 2 environment details:' >> {log} 2>&1 &&
+    qiime info >> {log} 2>&1 &&
 
-        # Confirm success
-        echo 'Birdman analysis completed successfully!' >> {log} 2>&1;
-        """
+    echo 'Removing existing directory if it exists...' >> {log} 2>&1 &&
+    rm -rf {output} &&
+
+    # Run the Birdman analysis
+    echo 'Running Birdman analysis...' >> {log} 2>&1 &&
+    qiime birdman run \
+        --i-table {input[0]} \
+        --m-metadata-file {input[1]} \
+        --p-formula "{params.formula}" \
+        --o-output-dir {output} \
+        --verbose >> {log} 2>&1 &&
+
+    # Confirm success
+    echo 'Birdman analysis completed successfully!' >> {log} 2>&1
+    """
 
 
 rule export_birdman_output:
     input:
         output_qza = "results/{dataset}/tools/birdman/raw_results.qza"
     output:
-        output_file = "results/{dataset}/tools/birdman/raw_results",
+        output_dir = directory("results/{dataset}/tools/birdman/raw_results"),
+        output_file = "results/{dataset}/tools/birdman/raw_results/metadata.tsv"
     log:
         "log/{dataset}/export_birdman_output.log"
     conda:
@@ -111,7 +113,7 @@ rule export_birdman_output:
 
         qiime tools export \
           --input-path {input.output_qza} \
-          --output-path {output.output_file}
+          --output-path {output.output_dir}
 
         # Log the end date and time
         echo "QZA file uzipped!" >> {log} 2>&1  
