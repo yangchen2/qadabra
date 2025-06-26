@@ -51,7 +51,7 @@ def get_diffab_tool_columns(wildcards):
     columns = {
         "edger": f"{covariate}{target}",
         "deseq2": "log2FoldChange",
-        "ancombc": "coefs",
+        "ancombc": "coef",
         "aldex2": f"model.{covariate}{target} Estimate",
         "songbird": f"C({covariate}, Treatment('{reference}'))[T.{target}]",
         "maaslin2": "coef",
@@ -73,7 +73,7 @@ def get_pvalue_tool_columns(wildcards):
     columns = {
         "edger": "PValue_BH_adj",
         "deseq2": "padj",
-        "ancombc": "qvals",
+        "ancombc": "qval",
         "aldex2": f"model.{covariate}{target} Pr(>|t|).BH",
         "maaslin2": "pval_BH_adj",
         "metagenomeseq": "adjPvalues",

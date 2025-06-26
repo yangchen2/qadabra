@@ -177,8 +177,8 @@ rule ancombc:
         "log/{dataset}/ancombc.log",
     params:
         lambda wc: get_dataset_cfg(wc, da_params)
-    conda:
-        "../envs/qadabra-da-R.yaml"
+    # conda: # commented out for ANCOMBC2 which is not on conda
+    #     "../envs/qadabra-da-R.yaml"
     script:
         "../scripts/R/ancombc.R"
 
