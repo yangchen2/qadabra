@@ -193,8 +193,8 @@ rule aldex2:
         "log/{dataset}/aldex2.log",
     params:
         lambda wc: get_dataset_cfg(wc, da_params)
-    conda:
-        "../envs/qadabra-da-R.yaml"
+    # conda:
+    #     "../envs/qadabra-da-R.yaml"
     script:
         "../scripts/R/aldex2.R"
 
