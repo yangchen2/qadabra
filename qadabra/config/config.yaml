@@ -1,8 +1,9 @@
 stylesheet: "config/qadabra.mplstyle"
 tools:
+    - birdman
     - deseq2
     - ancombc
-    - songbird
+    # - songbird
     - aldex2
     - edger
     - maaslin2

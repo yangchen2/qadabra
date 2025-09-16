@@ -1,10 +1,15 @@
 library(biomformat)
+BiocManager::install("ALDEx2")
 library(ALDEx2)
 
 # Set logging information
 log <- file(snakemake@log[[1]], open="wt")
 sink(log)
 sink(log, type="message")
+
+# Log versions
+cat("R version:", R.version.string, "\n")
+cat("ALDEx2 version:", as.character(packageVersion("ALDEx2")), "\n")
 
 # Load the input table
 print("Loading table...")

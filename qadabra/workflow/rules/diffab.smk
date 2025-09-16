@@ -3,6 +3,153 @@ import os
 da_args = ["table", "metadata"]
 da_params = ["factor_name", "target_level", "reference_level", "confounders"]
 
+rule biom_to_qza:
+    input:
+        unpack(lambda wc: get_dataset_cfg(wc, da_args))
+    output:
+        qza="results/{dataset}/input_data/qza/{dataset}.qza"
+    log:
+        "log/{dataset}/biom_to_qza.log"
+    conda:
+        "../envs/q2-birdman-dev.yaml"
+    shell:
+        """
+        # Log the current date and time
+        echo "Start time: $(date)" >> {log} 2>&1
+
+        # Log the QIIME 2 version
+        echo "Running QIIME 2 in environment:" >> {log} 2>&1
+        qiime --version >> {log} 2>&1
+        
+        # Log all details from `qiime info`
+        echo "Complete QIIME 2 environment details:" >> {log} 2>&1
+        qiime info >> {log} 2>&1
+
+        # Check if Birdman is listed in the plugins
+        echo "Running qiime tools import..." >> {log} 2>&1
+
+        qiime tools import \
+          --input-path {input.table} \
+          --type 'FeatureTable[Frequency]' \
+          --output-path {output.qza}
+
+        # Log the end date and time
+        echo "Complete! QZA file outputed." >> {log} 2>&1  
+        """
+
+
+rule birdman:
+    input:
+        table="results/{dataset}/input_data/qza/{dataset}.qza",
+        metadata=lambda wc: get_dataset_cfg(wc, da_args)["metadata"]
+    output:
+        raw_results = "results/{dataset}/tools/birdman/raw_results.qza",
+    log:
+        "log/{dataset}/birdman.log"
+    params:
+        lambda wc: get_dataset_cfg(wc, da_params),
+        formula=get_birdman_formula,
+        outdir=lambda wc, output: os.path.dirname(output[0])
+    shell: """
+    echo 'Initializing Conda...' >> {log} 2>&1 &&
+    source ~/miniforge3/etc/profile.d/conda.sh &&
+
+    set +u
+    conda activate q2-birdman-dev
+    set -u
+
+    echo 'Activated Conda Environment: q2-birdman-dev' >> {log} 2>&1 &&
+
+    # Log the current date and time
+    echo 'Start time: $(date)' >> {log} 2>&1 &&
+
+    # Log the QIIME 2 version
+    echo 'Running QIIME 2 in environment:' >> {log} 2>&1 &&
+    qiime --version >> {log} 2>&1 &&
+
+    # Log all details from `qiime info`
+    echo 'Complete QIIME 2 environment details:' >> {log} 2>&1 &&
+    qiime info >> {log} 2>&1 &&
+
+    echo 'Removing existing directory if it exists...' >> {log} 2>&1 &&
+    rm -rf {output} &&
+
+    # Run the Birdman analysis
+    echo 'Running Birdman analysis...' >> {log} 2>&1 &&
+    qiime birdman run \
+        --i-table {input[0]} \
+        --m-metadata-file {input[1]} \
+        --p-formula "{params.formula}" \
+        --o-output-dir {output} \
+        --verbose >> {log} 2>&1 &&
+
+    # Confirm success
+    echo 'Birdman analysis completed successfully!' >> {log} 2>&1
+    """
+
+
+rule export_birdman_output:
+    input:
+        output_qza = "results/{dataset}/tools/birdman/raw_results.qza"
+    output:
+        output_dir = directory("results/{dataset}/tools/birdman/raw_results"),
+        output_file = "results/{dataset}/tools/birdman/raw_results/metadata.tsv"
+    log:
+        "log/{dataset}/export_birdman_output.log"
+    conda:
+        "../envs/q2-birdman-dev.yaml"
+    shell:
+        """
+        # Log the current date and time
+        echo "Start time: $(date)" >> {log} 2>&1
+
+        # Log the QIIME 2 version
+        echo "Running QIIME 2 in environment:" >> {log} 2>&1
+        qiime --version >> {log} 2>&1
+        
+        # Log all details from `qiime info`
+        echo "Complete QIIME 2 environment details:" >> {log} 2>&1
+        qiime info >> {log} 2>&1
+
+        qiime tools export \
+          --input-path {input.output_qza} \
+          --output-path {output.output_dir}
+
+        # Log the end date and time
+        echo "QZA file uzipped!" >> {log} 2>&1  
+        """
+
+
+rule extract_birdman_output:
+    input:
+        input_file="results/{dataset}/tools/birdman/raw_results/metadata.tsv"
+    output:
+        output_file="results/{dataset}/tools/birdman/raw_results/differentials_raw.tsv"
+    log:
+        "log/{dataset}/extract_birdman_output.log"
+    shell:
+        """
+        echo "Start time: $(date)" >> {log} 2>&1
+        mv {input.input_file} {output.output_file}
+        echo "Extraction complete." >> {log} 2>&1
+        """
+
+
+rule remove_birdman_string_row:
+    input:
+        "results/{dataset}/tools/birdman/raw_results/differentials_raw.tsv"
+    output:
+        "results/{dataset}/tools/birdman/differentials.tsv"
+    log:
+        "log/{dataset}/remove_birdman_string_row.log"
+    shell:
+        """
+        echo "Start time: $(date)" >> {log} 2>&1
+        sed '2d' {input} > {output}
+        echo "Row removal complete." >> {log} 2>&1
+        """
+
+
 
 rule deseq2:
     input:
@@ -30,8 +177,8 @@ rule ancombc:
         "log/{dataset}/ancombc.log",
     params:
         lambda wc: get_dataset_cfg(wc, da_params)
-    conda:
-        "../envs/qadabra-da-R.yaml"
+    # conda: # commented out for ANCOMBC2 which is not on conda
+    #     "../envs/qadabra-da-R.yaml"
     script:
         "../scripts/R/ancombc.R"
 
@@ -46,8 +193,8 @@ rule aldex2:
         "log/{dataset}/aldex2.log",
     params:
         lambda wc: get_dataset_cfg(wc, da_params)
-    conda:
-        "../envs/qadabra-da-R.yaml"
+    # conda:
+    #     "../envs/qadabra-da-R.yaml"
     script:
         "../scripts/R/aldex2.R"
 
